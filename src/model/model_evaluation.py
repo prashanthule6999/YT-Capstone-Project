@@ -135,14 +135,14 @@ def main():
             
             # Log model to MLflow
             model_info = mlflow.sklearn.log_model(clf, 
-                                     name="model",
-                                     serialization_format="skops",
-                                     pip_requirements=[
-                                            "scikit-learn==1.8.0",
-                                            "numpy==1.26.4",
-                                            "pandas==2.2.0",
-                                            "skops==0.13.0"
-                                        ])
+                                     artifact_path="model")
+                                    #  serialization_format="skops",
+                                    #  pip_requirements=[
+                                    #         "scikit-learn==1.8.0",
+                                    #         "numpy==1.26.4",
+                                    #         "pandas==2.2.0",
+                                    #         "skops==0.13.0"
+                                    #     ])
             
             # Save model info
             save_model_info(run.info.run_id, model_info.model_uri, 'reports/experiment_info.json')
