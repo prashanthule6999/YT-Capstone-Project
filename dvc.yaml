@@ -30,7 +30,7 @@ stages:
   model_building:
     cmd: python src/model/model_building.py
     deps:
-    - data/processed    
+    - data/processed
     - src/model/model_building.py
     outs:
     - models/model.pkl
