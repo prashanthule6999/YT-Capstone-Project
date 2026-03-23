@@ -29,11 +29,15 @@ class TestModelLoading(unittest.TestCase):
         # Load the new model from MLflow model registry
         cls.new_model_name = "my_model"
         cls.new_model_version = cls.get_latest_model_version(cls.new_model_name)
+        if cls.new_model_version is None:
+            raise ValueError("No model found in Staging stage")
         cls.new_model_uri = f'models:/{cls.new_model_name}/{cls.new_model_version}'
         cls.new_model = mlflow.pyfunc.load_model(cls.new_model_uri)
 
         # Load the vectorizer
-        cls.vectorizer = pickle.load(open('models/vectorizer.pkl', 'rb'))
+        # cls.vectorizer = pickle.load(open('models/vectorizer.pkl', 'rb'))
+        with open('models/vectorizer.pkl', 'rb') as f:
+            cls.vectorizer = pickle.load(f)
 
         # Load holdout test data
         cls.holdout_data = pd.read_csv('data/processed/test_bow.csv')
@@ -69,7 +73,7 @@ class TestModelLoading(unittest.TestCase):
         y_holdout = self.holdout_data.iloc[:,-1]
 
         # Predict using the new model
-        y_pred_new = self.new_model.predict(X_holdout)
+        y_pred_new = self.new_model.predict(X_holdout.values)
 
         # Calculate performance metrics for the new model
         accuracy_new = accuracy_score(y_holdout, y_pred_new)
