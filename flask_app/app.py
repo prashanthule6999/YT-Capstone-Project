@@ -12,9 +12,28 @@ import logging
 import re
 import dagshub
 import nltk
-nltk.data.find('corpora/stopwords')
-nltk.data.find('corpora/wordnet')
+import os
+import nltk
+from nltk.corpus import stopwords
 
+def ensure_nltk_data():
+    nltk_data_path = os.getenv("NLTK_DATA", os.path.expanduser("~/nltk_data"))
+    nltk.data.path.append(nltk_data_path)
+
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        nltk.download('stopwords', download_dir=nltk_data_path)
+
+    try:
+        nltk.data.find('corpora/wordnet')
+    except LookupError:
+        nltk.download('wordnet', download_dir=nltk_data_path)
+
+# ✅ Ensure NLTK data is available before using stopwords
+ensure_nltk_data()
+
+# Now it's safe to initialize STOP_WORDS
 STOP_WORDS = set(stopwords.words("english"))
 
 logging.basicConfig(
@@ -167,6 +186,7 @@ def home():
 
 @app.before_first_request
 def initialize():
+    ensure_nltk_data()
     load_model()
 
 @app.route("/predict", methods=["POST"])
