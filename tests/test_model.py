@@ -73,13 +73,22 @@ class TestModelLoading(unittest.TestCase):
         y_holdout = self.holdout_data.iloc[:,-1]
 
         # Predict using the new model
-        y_pred_new = self.new_model.predict(X_holdout.values)
+        # y_pred_new = self.new_model.predict(X_holdout.values)
+        X_holdout_df = pd.DataFrame(
+            X_holdout.values,
+            columns=[str(i) for i in range(X_holdout.shape[1])]
+        )
+
+        y_pred_new = self.new_model.predict(X_holdout_df)
 
         # Calculate performance metrics for the new model
         accuracy_new = accuracy_score(y_holdout, y_pred_new)
-        precision_new = precision_score(y_holdout, y_pred_new)
-        recall_new = recall_score(y_holdout, y_pred_new)
-        f1_new = f1_score(y_holdout, y_pred_new)
+        # precision_new = precision_score(y_holdout, y_pred_new)
+        # recall_new = recall_score(y_holdout, y_pred_new)
+        # f1_new = f1_score(y_holdout, y_pred_new)
+        precision_new = precision_score(y_holdout, y_pred_new, zero_division=0)
+        recall_new = recall_score(y_holdout, y_pred_new, zero_division=0)
+        f1_new = f1_score(y_holdout, y_pred_new, zero_division=0)
 
         # Define expected thresholds for the performance metrics
         expected_accuracy = 0.40
@@ -87,6 +96,8 @@ class TestModelLoading(unittest.TestCase):
         expected_recall = 0.40
         expected_f1 = 0.40
 
+        print(f"Accuracy: {accuracy_new}, Precision: {precision_new}, Recall: {recall_new}, F1: {f1_new}")
+        
         # Assert that the new model meets the performance thresholds
         self.assertGreaterEqual(accuracy_new, expected_accuracy, f'Accuracy should be at least {expected_accuracy}')
         self.assertGreaterEqual(precision_new, expected_precision, f'Precision should be at least {expected_precision}')
