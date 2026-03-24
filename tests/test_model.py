@@ -79,7 +79,7 @@ class TestModelLoading(unittest.TestCase):
             columns=[str(i) for i in range(X_holdout.shape[1])]
         )
 
-        y_pred_new = self.new_model.predict(X_holdout_df)
+        y_pred_new = self.new_model.predict(X_holdout_df.values)
 
         # Calculate performance metrics for the new model
         accuracy_new = accuracy_score(y_holdout, y_pred_new)
