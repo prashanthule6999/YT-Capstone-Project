@@ -184,7 +184,7 @@ def home():
     REQUEST_LATENCY.labels(endpoint="/").observe(time.time() - start_time)
     return response
 
-@app.before_first_request
+@app.before_serving
 def initialize():
     ensure_nltk_data()
     load_model()
