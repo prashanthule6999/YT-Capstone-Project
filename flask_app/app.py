@@ -2,18 +2,25 @@ from flask import Flask, render_template, request
 import mlflow
 import pickle
 import os
-import pandas as pd
+from threading import Lock
 from prometheus_client import Counter, Histogram, generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST
 import time
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 import string
+import logging
 import re
 import dagshub
+import nltk
+nltk.data.find('corpora/stopwords')
+nltk.data.find('corpora/wordnet')
 
-import warnings
-warnings.simplefilter("ignore", UserWarning)
-warnings.filterwarnings("ignore")
+STOP_WORDS = set(stopwords.words("english"))
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 def lemmatization(text):
     """Lemmatize the text."""
@@ -22,10 +29,14 @@ def lemmatization(text):
     text = [lemmatizer.lemmatize(word) for word in text]
     return " ".join(text)
 
+# def remove_stop_words(text):
+#     """Remove stop words from the text."""
+#     stop_words = set(stopwords.words("english"))
+#     text = [word for word in str(text).split() if word not in stop_words]
+#     return " ".join(text)
+
 def remove_stop_words(text):
-    """Remove stop words from the text."""
-    stop_words = set(stopwords.words("english"))
-    text = [word for word in str(text).split() if word not in stop_words]
+    text = [word for word in str(text).split() if word not in STOP_WORDS]
     return " ".join(text)
 
 def removing_numbers(text):
@@ -51,11 +62,11 @@ def removing_urls(text):
     url_pattern = re.compile(r'https?://\S+|www\.\S+')
     return url_pattern.sub(r'', text)
 
-def remove_small_sentences(df):
-    """Remove sentences with less than 3 words."""
-    for i in range(len(df)):
-        if len(df.text.iloc[i].split()) < 3:
-            df.text.iloc[i] = np.nan
+# def remove_small_sentences(df):
+#     """Remove sentences with less than 3 words."""
+#     for i in range(len(df)):
+#         if len(df.text.iloc[i].split()) < 3:
+#             df.text.iloc[i] = np.nan
 
 def normalize_text(text):
     text = lower_case(text)
@@ -120,11 +131,30 @@ def get_latest_model_version(model_name):
         latest_version = client.get_latest_versions(model_name, stages=["None"])
     return latest_version[0].version if latest_version else None
 
+# model_version = get_latest_model_version(model_name)
 model_version = get_latest_model_version(model_name)
+if model_version is None:
+    raise ValueError(f"No versions found for model: {model_name}")
+
 model_uri = f'models:/{model_name}/{model_version}'
-print(f"Fetching model from: {model_uri}")
-model = mlflow.pyfunc.load_model(model_uri)
-vectorizer = pickle.load(open('models/vectorizer.pkl', 'rb'))
+# print(f"Fetching model from: {model_uri}")
+logging.info(f"Fetching model from: {model_uri}")
+# model = mlflow.pyfunc.load_model(model_uri)
+model = None
+model_lock = Lock()
+
+def load_model():
+    global model
+    if model is None:
+        with model_lock:
+            if model is None:  # double check
+                model = mlflow.pyfunc.load_model(model_uri)
+    return model
+
+
+# vectorizer = pickle.load(open('models/vectorizer.pkl', 'rb'))
+with open('models/vectorizer.pkl', 'rb') as f:
+    vectorizer = pickle.load(f)
 
 # Routes
 @app.route("/")
@@ -135,21 +165,34 @@ def home():
     REQUEST_LATENCY.labels(endpoint="/").observe(time.time() - start_time)
     return response
 
+@app.before_first_request
+def initialize():
+    load_model()
+
 @app.route("/predict", methods=["POST"])
 def predict():
     REQUEST_COUNT.labels(method="POST", endpoint="/predict").inc()
     start_time = time.time()
 
-    text = request.form["text"]
+    # text = request.form["text"]
+    text = request.form.get("text", "")
+
+    if not text.strip():
+        return render_template("index.html", result="Please enter valid text")
     # Clean text
     text = normalize_text(text)
     # Convert to features
     features = vectorizer.transform([text])
-    features_df = pd.DataFrame(features.toarray(), columns=[str(i) for i in range(features.shape[1])])
+    # features_df = pd.DataFrame(features.toarray(), columns=[str(i) for i in range(features.shape[1])])
 
     # Predict
-    result = model.predict(features_df)
-    prediction = result[0]
+    # result = model.predict(features_df.values)
+    # result = model.predict(features.toarray())
+    model_instance = load_model()
+    result = model_instance.predict(features.toarray())
+    # prediction = result[0]
+    label_map = {0: "Negative", 1: "Positive"}
+    prediction = label_map.get(result[0], str(result[0]))
 
     # Increment prediction count metric
     PREDICTION_COUNT.labels(prediction=str(prediction)).inc()
@@ -163,6 +206,10 @@ def predict():
 def metrics():
     """Expose only custom Prometheus metrics."""
     return generate_latest(registry), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}, 200
 
 if __name__ == "__main__":
     # app.run(debug=True) # for local use
