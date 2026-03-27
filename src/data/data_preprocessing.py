@@ -49,7 +49,7 @@ def preprocess_dataframe(df, col='text'):
     df[col] = df[col].apply(preprocess_text)
 
     # Remove small sentences (less than 3 words)
-    # df[col] = df[col].apply(lambda x: np.nan if len(str(x).split()) < 3 else x)
+    df[col] = df[col].apply(lambda x: np.nan if len(str(x).split()) < 3 else x)
 
     # Drop rows with NaN values
     df = df.dropna(subset=[col])
