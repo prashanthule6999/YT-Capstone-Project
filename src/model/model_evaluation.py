@@ -135,7 +135,7 @@ def main():
             
             # Log model to MLflow
             model_info = mlflow.sklearn.log_model(clf, 
-                                     name="model")
+                                     artifact_path="model")
                                     #  serialization_format="skops",
                                     #  pip_requirements=[
                                     #         "scikit-learn==1.8.0",
